@@ -1,0 +1,18 @@
+{
+  "country": "pt",
+  "check_interval": 60,
+  "monitors": [
+    {
+      "name": "Nike Air Max",
+      "search_text": "nike air max",
+      "price_to": 60,
+      "order": "newest_first"
+    },
+    {
+      "name": "Levi's 501",
+      "search_text": "levis 501",
+      "price_to": 40,
+      "order": "newest_first"
+    }
+  ]
+}

@@ -78,6 +78,31 @@ def cmd_add(args):
     print_monitors_table(monitor.monitors)
 
 
+def cmd_setup_telegram(args):
+    import json
+    from pathlib import Path
+    from telegram_notify import get_chat_id
+
+    config_path = Path(args.config)
+    data = json.loads(config_path.read_text())
+    token = data.get("telegram_token", "")
+
+    if not token or "TOKEN" in token:
+        console.print("[yellow]Mete primeiro o teu token em monitors.json no campo 'telegram_token'[/]")
+        return
+
+    console.print("[dim]A procurar chat_id...[/]")
+    chat_id = get_chat_id(token)
+    if chat_id:
+        data["telegram_chat_id"] = chat_id
+        config_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+        console.print(f"[green]Chat ID encontrado e guardado: [bold]{chat_id}[/][/]")
+        console.print("[green]Telegram configurado! Podes arrancar o monitor.[/]")
+    else:
+        console.print("[red]Não encontrei nenhuma mensagem. Abre o bot no Telegram e manda qualquer mensagem primeiro.[/]")
+        console.print(f"[dim]Link do bot: t.me/VintedMonitorDeals_bot[/]")
+
+
 def cmd_remove(args):
     monitor = VintedMonitor(args.config)
     name = args.name
@@ -89,7 +114,6 @@ def cmd_remove(args):
 
 
 def _notify_discord(monitor, deals):
-    """Envia deals para Discord se o webhook estiver configurado."""
     webhook = monitor.discord_webhook
     if not webhook or "SEU_ID" in webhook:
         return
@@ -98,7 +122,22 @@ def _notify_discord(monitor, deals):
     if sent:
         print_status(f"[magenta]Discord: {sent} mensagem(ns) enviada(s)[/]")
     else:
-        print_status("[yellow]Discord: falha ao enviar mensagens[/]")
+        print_status("[yellow]Discord: falha ao enviar[/]")
+
+
+def _notify_telegram(monitor, deals):
+    token = monitor.telegram_token
+    chat_id = monitor.telegram_chat_id
+    if not token or "TOKEN" in str(token):
+        return
+    if not chat_id:
+        return
+    from telegram_notify import send_deals_batch
+    sent = send_deals_batch(token, chat_id, deals, monitor.client)
+    if sent:
+        print_status(f"[blue]Telegram: {sent} mensagem(ns) enviada(s)[/]")
+    else:
+        print_status("[yellow]Telegram: falha ao enviar[/]")
 
 
 def cmd_check(args):
@@ -110,6 +149,7 @@ def cmd_check(args):
     if deals:
         print_deals_batch(deals, monitor.client)
         _notify_discord(monitor, deals)
+        _notify_telegram(monitor, deals)
     else:
         print_no_new()
 
@@ -119,11 +159,12 @@ def cmd_run(args):
     print_banner()
     print_monitors_table(monitor.monitors)
 
-    webhook_status = ""
+    notif_parts = []
     if monitor.discord_webhook and "SEU_ID" not in monitor.discord_webhook:
-        webhook_status = " | [magenta]Discord ativo[/]"
-    else:
-        webhook_status = " | [dim]Discord não configurado[/]"
+        notif_parts.append("[magenta]Discord[/]")
+    if monitor.telegram_token and "TOKEN" not in str(monitor.telegram_token) and monitor.telegram_chat_id:
+        notif_parts.append("[blue]Telegram[/]")
+    webhook_status = " | " + ", ".join(notif_parts) + " ativo" if notif_parts else " | [dim]sem notificações[/]"
 
     console.print(
         f"[dim]A verificar a cada [bold]{monitor.check_interval}s[/]{webhook_status}. "
@@ -143,6 +184,7 @@ def cmd_run(args):
             elif deals:
                 print_deals_batch(deals, monitor.client)
                 _notify_discord(monitor, deals)
+                _notify_telegram(monitor, deals)
                 first_run = False
             else:
                 print_no_new()
@@ -185,6 +227,7 @@ def main():
     subparsers.add_parser("list", help="Listar monitores configurados")
     subparsers.add_parser("add", help="Adicionar monitor interativamente")
     subparsers.add_parser("check", help="Verificar uma vez e sair")
+    subparsers.add_parser("setup-telegram", help="Buscar e guardar o chat_id do Telegram automaticamente")
 
     remove_parser = subparsers.add_parser("remove", help="Remover monitor pelo nome")
     remove_parser.add_argument("name", help="Nome do monitor a remover")
@@ -204,6 +247,7 @@ def main():
         "add": cmd_add,
         "remove": cmd_remove,
         "check": cmd_check,
+        "setup-telegram": cmd_setup_telegram,
         None: cmd_run,
     }
 

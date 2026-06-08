@@ -83,6 +83,28 @@ O monitor classifica cada item com base no preço vs. o `price_to` configurado:
 | 👍 GOOD DEAL | Preço ≤ 80% do máximo |
 | NEW | Item novo sem contexto de preço |
 
+## Notificações Discord
+
+Adiciona o teu webhook ao `monitors.json`:
+
+```json
+{
+  "discord_webhook": "https://discord.com/api/webhooks/ID/TOKEN",
+  ...
+}
+```
+
+**Como criar um webhook no Discord:**
+1. Vai às definições do canal → Integrações → Webhooks
+2. Clica em "Novo Webhook"
+3. Copia o URL e cola no `monitors.json`
+
+Cada deal novo aparece como um embed colorido no canal:
+- 🔥 Borda vermelha → Fire Deal
+- ✨ Borda amarela → Great Deal
+- 👍 Borda verde → Good Deal
+- 🆕 Borda azul → Item novo
+
 ## Proxy (Opcional)
 
 Se correres de um servidor ou VPN:

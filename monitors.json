@@ -1,6 +1,7 @@
 {
   "country": "pt",
   "check_interval": 60,
+  "discord_webhook": "https://discord.com/api/webhooks/SEU_ID/SEU_TOKEN",
   "monitors": [
     {
       "name": "Nike Air Max",

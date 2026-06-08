@@ -136,6 +136,7 @@ class VintedMonitor:
         data = json.loads(self.config_path.read_text())
         self.country: str = data.get("country", "pt")
         self.check_interval: int = int(data.get("check_interval", 60))
+        self.discord_webhook: str | None = data.get("discord_webhook") or None
         self.monitors: list[MonitorConfig] = []
         for m in data.get("monitors", []):
             self.monitors.append(MonitorConfig(

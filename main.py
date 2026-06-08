@@ -88,6 +88,19 @@ def cmd_remove(args):
         print_monitors_table(monitor.monitors)
 
 
+def _notify_discord(monitor, deals):
+    """Envia deals para Discord se o webhook estiver configurado."""
+    webhook = monitor.discord_webhook
+    if not webhook or "SEU_ID" in webhook:
+        return
+    from discord_notify import send_deals_batch
+    sent = send_deals_batch(webhook, deals, monitor.client)
+    if sent:
+        print_status(f"[magenta]Discord: {sent} mensagem(ns) enviada(s)[/]")
+    else:
+        print_status("[yellow]Discord: falha ao enviar mensagens[/]")
+
+
 def cmd_check(args):
     monitor = _make_monitor(args)
     print_banner()
@@ -96,6 +109,7 @@ def cmd_check(args):
     deals = monitor.check_all()
     if deals:
         print_deals_batch(deals, monitor.client)
+        _notify_discord(monitor, deals)
     else:
         print_no_new()
 
@@ -104,8 +118,15 @@ def cmd_run(args):
     monitor = _make_monitor(args)
     print_banner()
     print_monitors_table(monitor.monitors)
+
+    webhook_status = ""
+    if monitor.discord_webhook and "SEU_ID" not in monitor.discord_webhook:
+        webhook_status = " | [magenta]Discord ativo[/]"
+    else:
+        webhook_status = " | [dim]Discord não configurado[/]"
+
     console.print(
-        f"[dim]A verificar a cada [bold]{monitor.check_interval}s[/]. "
+        f"[dim]A verificar a cada [bold]{monitor.check_interval}s[/]{webhook_status}. "
         f"Ctrl+C para parar.[/]\n"
     )
 
@@ -121,6 +142,7 @@ def cmd_run(args):
                 first_run = False
             elif deals:
                 print_deals_batch(deals, monitor.client)
+                _notify_discord(monitor, deals)
                 first_run = False
             else:
                 print_no_new()
@@ -129,7 +151,7 @@ def cmd_run(args):
 
             # Reload config in case it was edited
             try:
-                monitor = VintedMonitor(args.config)
+                monitor = VintedMonitor(args.config, proxy=getattr(args, "proxy", None))
             except Exception:
                 pass
 

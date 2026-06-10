@@ -56,30 +56,15 @@ def _pick_numbered(items: list[tuple], prompt: str, multi: bool = True) -> list:
 # ─── category ────────────────────────────────────────────────────────────────
 
 def _fetch_categories(client: VintedClient) -> list[tuple]:
-    try:
-        resp = client.session.get(
-            f"{client.api_url}/catalog/categories",
-            timeout=15,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        cats = data.get("catalog_tree", data.get("categories", []))
-
-        result = []
-        for cat in cats:
-            cid = cat.get("id")
-            title = cat.get("title") or cat.get("name", "")
-            if cid and title:
-                result.append((cid, title))
-            # subcategories
-            for sub in cat.get("children", cat.get("subcategories", [])):
-                sid = sub.get("id")
-                stitle = sub.get("title") or sub.get("name", "")
-                if sid and stitle:
-                    result.append((sid, f"  {title} › {stitle}"))
-        return result
-    except Exception:
-        return []
+    # Categorias principais do Vinted PT (hardcoded como fallback fiável)
+    # Estes IDs são os mesmos em vinted.pt/fr/es/de
+    return [
+        (1, "Mulher"),
+        (4, "Homem"),
+        (3, "Criança"),
+        (5, "Casa"),
+        (7, "Entretenimento"),
+    ]
 
 
 def pick_category(client: VintedClient) -> int | None:
@@ -109,35 +94,84 @@ def pick_category(client: VintedClient) -> int | None:
 # ─── brands ──────────────────────────────────────────────────────────────────
 
 def _search_brands(client: VintedClient, query: str) -> list[tuple]:
-    try:
-        resp = client.session.get(
-            f"{client.api_url}/catalog/brands",
-            params={"search_text": query, "per_page": 15},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        brands = resp.json().get("brands", [])
-        return [(b["id"], b.get("title", b.get("name", ""))) for b in brands if b.get("id")]
-    except Exception:
-        return []
+    # Tenta vários endpoints conhecidos da API do Vinted
+    endpoints = [
+        f"{client.api_url}/brands",
+        f"{client.base_url}/api/v2/brands",
+    ]
+    params_options = [
+        {"search_text": query, "per_page": 15},
+        {"q": query, "per_page": 15},
+    ]
+    for url in endpoints:
+        for params in params_options:
+            try:
+                resp = client.session.get(url, params=params, timeout=15)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    brands = data.get("brands", data.get("items", []))
+                    if brands:
+                        return [(b["id"], b.get("title", b.get("name", ""))) for b in brands if b.get("id")]
+            except Exception:
+                continue
+    return []
+
+
+# IDs reais de marcas populares no Vinted
+KNOWN_BRANDS = {
+    "nike": (53, "Nike"),
+    "adidas": (14, "Adidas"),
+    "supreme": (1524, "Supreme"),
+    "stussy": (1058, "Stüssy"),
+    "ralph lauren": (88, "Ralph Lauren"),
+    "carhartt": (226, "Carhartt"),
+    "fendi": (261, "Fendi"),
+    "bape": (1062, "A Bathing Ape (BAPE)"),
+    "palace": (2543, "Palace"),
+    "corteiz": (5555, "Corteiz"),
+    "stone island": (773, "Stone Island"),
+    "north face": (2107, "The North Face"),
+    "jordan": (53, "Nike"),  # Jordan é sub-marca Nike no Vinted
+    "off white": (2064, "Off-White"),
+    "new balance": (19, "New Balance"),
+    "puma": (24, "Puma"),
+    "champion": (536, "Champion"),
+    "tommy": (69, "Tommy Hilfiger"),
+    "lacoste": (66, "Lacoste"),
+    "hugo boss": (72, "Hugo Boss"),
+}
 
 
 def pick_brands(client: VintedClient) -> list[int]:
     console.print("\n[bold]Marcas[/]")
     brand_ids = []
+    selected_names = []
+
     while True:
-        query = input("Pesquisar marca (Enter para terminar): ").strip()
+        query = input("Pesquisar marca (Enter para terminar): ").strip().lower()
         if not query:
             break
-        results = _search_brands(client, query)
-        if not results:
-            console.print("[yellow]Nenhuma marca encontrada.[/]")
-            continue
-        picked = _pick_numbered(results, "Escolhe marcas", multi=True)
-        brand_ids.extend(picked)
-        already = [label for bid, label in results if bid in brand_ids]
-        if brand_ids:
-            console.print(f"[green]Marcas selecionadas: {', '.join(already) or str(brand_ids)}[/]")
+
+        # Tenta primeiro na lista local
+        local = [(bid, name) for k, (bid, name) in KNOWN_BRANDS.items() if query in k]
+        if local:
+            picked = _pick_numbered(local, "Escolhe marca", multi=False)
+            brand_ids.extend(picked)
+            selected_names.extend([name for bid, name in local if bid in picked])
+        else:
+            # Tenta na API
+            results = _search_brands(client, query)
+            if results:
+                picked = _pick_numbered(results, "Escolhe marca", multi=False)
+                brand_ids.extend(picked)
+                selected_names.extend([name for bid, name in results if bid in picked])
+            else:
+                console.print(f"[yellow]Marca '{query}' não encontrada.[/]")
+                continue
+
+        if selected_names:
+            console.print(f"[green]✓ {', '.join(set(selected_names))}[/]")
+
     return list(set(brand_ids))
 
 

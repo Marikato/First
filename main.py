@@ -45,63 +45,16 @@ def cmd_list(args):
     print_monitors_table(load_monitors_from_config(args.config))
 
 
-ROUPA_SIZES = {
-    "XS": 1271, "S": 1272, "M": 1273, "L": 1274,
-    "XL": 1275, "XXL": 1276, "XXXL": 1277,
-}
-CALCADO_SIZES = {
-    "36": 1305, "37": 1306, "38": 1307, "39": 1308, "40": 1309,
-    "41": 1310, "42": 1311, "43": 1312, "44": 1313, "45": 1314,
-    "46": 1315,
-}
-
-
 def cmd_add(args):
-    monitor = VintedMonitor(args.config, proxy=getattr(args, "proxy", None))
-    console.print("[bold magenta]Adicionar novo monitor[/]\n")
-
-    name = input("Nome do monitor: ").strip()
-    if not name:
-        print_error("Nome não pode estar vazio.")
-        return
-
-    search = input("Texto de pesquisa (ex: nike air max): ").strip()
-    price_to_raw = input("Preço máximo em € (Enter para sem limite): ").strip()
-    price_from_raw = input("Preço mínimo em € (Enter para sem limite): ").strip()
-
-    # Tamanhos
-    console.print("\n[dim]Tamanhos de roupa:[/] XS S M L XL XXL XXXL")
-    console.print("[dim]Tamanhos de calçado:[/] 36 37 38 39 40 41 42 43 44 45 46")
-    sizes_raw = input("Tamanhos (separados por vírgula, Enter para todos): ").strip().upper()
-    size_ids = []
-    if sizes_raw:
-        for s in sizes_raw.split(","):
-            s = s.strip()
-            sid = ROUPA_SIZES.get(s) or CALCADO_SIZES.get(s)
-            if sid:
-                size_ids.append(sid)
-            else:
-                console.print(f"[yellow]Tamanho '{s}' não reconhecido, ignorado.[/]")
-
-    new_monitor: dict = {"name": name}
-    if search:
-        new_monitor["search_text"] = search
-    if price_to_raw:
-        try:
-            new_monitor["price_to"] = float(price_to_raw)
-        except ValueError:
-            print_error("Preço inválido, a ignorar.")
-    if price_from_raw:
-        try:
-            new_monitor["price_from"] = float(price_from_raw)
-        except ValueError:
-            pass
-    if size_ids:
-        new_monitor["size_ids"] = size_ids
-
-    monitor.add_monitor(new_monitor)
-    console.print(f"\n[green]Monitor '[bold]{name}[/]' adicionado![/]")
-    print_monitors_table(monitor.monitors)
+    monitor = _make_monitor(args)
+    import wizard
+    config = wizard.run(monitor.client)
+    if config:
+        monitor.add_monitor(config)
+        console.print(f"\n[green]Monitor '[bold]{config['name']}[/]' adicionado![/]")
+        print_monitors_table(load_monitors_from_config(args.config))
+    else:
+        console.print("[yellow]Cancelado.[/]")
 
 
 def cmd_lookup(args):

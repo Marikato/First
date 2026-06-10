@@ -34,19 +34,28 @@ class Deal:
 
     @property
     def price(self) -> str:
-        p = self.item.get("price_numeric") or self.item.get("price", 0)
-        currency = self.item.get("currency", "€")
-        try:
-            return f"{float(p):.2f} {currency}"
-        except (TypeError, ValueError):
-            return f"{p} {currency}"
+        amount, currency = self._parse_price()
+        return f"{amount:.2f} {currency}"
 
     @property
     def price_numeric(self) -> float:
+        amount, _ = self._parse_price()
+        return amount
+
+    def _parse_price(self) -> tuple[float, str]:
+        p = self.item.get("price_numeric") or self.item.get("price", 0)
+        currency = "€"
+        # Vinted API returns price as dict: {'amount': '19.0', 'currency_code': 'EUR'}
+        if isinstance(p, dict):
+            currency_code = p.get("currency_code", "EUR")
+            currency = "€" if currency_code == "EUR" else currency_code
+            p = p.get("amount", 0)
+        elif isinstance(self.item.get("currency"), str):
+            currency = self.item["currency"]
         try:
-            return float(self.item.get("price_numeric") or self.item.get("price", 0))
+            return float(p), currency
         except (TypeError, ValueError):
-            return 0.0
+            return 0.0, currency
 
     @property
     def brand(self) -> str:

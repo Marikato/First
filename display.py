@@ -43,11 +43,12 @@ def print_monitors_table(monitors: list[MonitorConfig]):
     table.add_column("Nome", style="bold")
     table.add_column("Pesquisa")
     table.add_column("Preço Máx", justify="right", style="green")
-    table.add_column("Ordem")
+    table.add_column("Tamanhos")
 
     for i, m in enumerate(monitors, 1):
         price_max = f"{m.price_to:.0f} €" if m.price_to else "—"
-        table.add_row(str(i), m.name, m.search_text or "(qualquer)", price_max, m.order)
+        sizes = ", ".join(str(s) for s in m.size_ids) if m.size_ids else "todos"
+        table.add_row(str(i), m.name, m.search_text or "(qualquer)", price_max, sizes)
 
     console.print(table)
     console.print()
